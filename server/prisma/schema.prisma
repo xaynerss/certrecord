@@ -1,0 +1,113 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String               @id @default(cuid())
+  email         String               @unique
+  password      String
+  name          String?
+  role          String               @default("USER")
+  createdAt     DateTime             @default(now())
+  setting       NotificationSetting?
+  notifications Notification[]
+}
+
+model Certificate {
+  id            String    @id @default(cuid())
+  host          String
+  port          Int       @default(443)
+  cn            String?
+  san           String[]
+  issuer        String?
+  thumbprint    String?
+  validFrom     DateTime?
+  validTo       DateTime?
+  daysLeft      Int?
+  chainValid    Boolean?
+  chainError    String?
+  dnsMatch      Boolean?
+  selfSigned    Boolean   @default(false)
+  keyAlgo       String?
+  keySize       Int?
+  tlsVersion    String?
+  cipher        String?
+  sigAlgo       String?
+  weakCrypto    Boolean   @default(false)
+  weakCryptoReasons String[]
+  status        String    @default("UNKNOWN")
+  riskScore     Int       @default(0)
+  riskReasons   String[]
+  owner         String?
+  critical      Boolean   @default(false)
+  source        String    @default("scan") // scan | manual | file | generated
+  lastScannedAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([host, port])
+}
+
+model ScanJob {
+  id         String    @id @default(cuid())
+  userId     String?
+  targets    String[]
+  status     String    @default("PENDING")
+  total      Int       @default(0)
+  processed  Int       @default(0)
+  createdAt  DateTime  @default(now())
+  finishedAt DateTime?
+}
+
+model Notification {
+  id      String   @id @default(cuid())
+  userId  String?
+  user    User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key     String?
+  type    String
+  channel String
+  subject String
+  body    String
+  certId  String?
+  sentAt  DateTime @default(now())
+
+  @@index([userId, sentAt])
+}
+
+// Настройки уведомлений — у КАЖДОГО пользователя свои (в БД, не в .env)
+model NotificationSetting {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  thresholds       Int[]    @default([60, 30, 14, 7, 1])
+  emailEnabled     Boolean  @default(false)
+  telegramEnabled  Boolean  @default(false)
+  email            String?
+  telegramBotToken String?
+  telegramUsername String?
+  telegramChatId   String?
+  telegramStatus   String   @default("idle") // idle | pending | linked
+}
+
+// Глобальные настройки (пороги статусов, веса риска, сканер) — одна строка
+model AppSettings {
+  id               String @id @default("global")
+  statusThresholds Json   @default("{\"info\":60,\"warning\":30,\"critical\":14}")
+  riskWeights      Json   @default("{\"daysLeft\":0.4,\"criticality\":0.3,\"chain\":0.2,\"owner\":0.1}")
+  scheduler        Json   @default("{\"defaultPort\":443,\"timeoutMs\":6000,\"concurrency\":20,\"fullScanHours\":24}")
+}
+
+model AuditLog {
+  id      String   @id @default(cuid())
+  at      DateTime @default(now())
+  action  String
+  user    String   @default("system")
+  details String   @default("")
+
+  @@index([at])
+}

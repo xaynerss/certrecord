@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: certrecord-db
+    environment:
+      POSTGRES_USER: certrecord
+      POSTGRES_PASSWORD: certrecord
+      POSTGRES_DB: certrecord
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  pgdata:
